@@ -1,9 +1,7 @@
 #!/usr/bin/env sh
 
 GITHUB_URL='https://api.github.com'
-USER='hawx'
-TOKEN='38cada93e17b2b8e8db58461394c4661b59690b4'
-AUTH="$USER:$TOKEN"
+AUTH="$GH_DEPLOYMENTS_USERNAME:$GH_DEPLOYMENTS_TOKEN"
 
 get_first_id() {
   grep 'id' | head -n 1 | sed -ne 's/.*: \([0-9]*\),.*/\1/p'
