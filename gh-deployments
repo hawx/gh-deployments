@@ -3,74 +3,75 @@
 GITHUB_URL='https://api.github.com'
 AUTH="$GH_DEPLOYMENTS_USERNAME:$GH_DEPLOYMENTS_TOKEN"
 
-get_first_id() {
-  grep 'id' | head -n 1 | sed -ne 's/.*: \([0-9]*\),.*/\1/p'
-}
-
 get_id() {
-  curl -u "$AUTH" -XGET "$GITHUB_URL/repos/$1/deployments?ref=$2" 2>/dev/null | get_first_id
-}
-
-list_deployments() {
-  curl -u "$AUTH" -XGET "$GITHUB_URL/repos/$1/deployments" 2>/dev/null
+  curl -u "$AUTH" -XGET "$GITHUB_URL/repos/$1/deployments?ref=$2&environment=$3" 2>/dev/null |\
+    grep 'id' |\
+    head -n 1 |\
+    sed -ne 's/.*: \([0-9]*\),.*/\1/p'
 }
 
 create_deployment() {
-  curl -u "$AUTH" -XPOST "$GITHUB_URL/repos/$1/deployments" --data "{\"ref\": \"$2\", \"environment\": \"$3\"}" 2>/dev/null
-}
-
-get_status() {
-  curl -u "$AUTH" -XGET "$GITHUB_URL/repos/$1/deployments/$2/statuses" 2>/dev/null
+  curl -u "$AUTH" -XPOST "$GITHUB_URL/repos/$1/deployments" \
+       -d "{\"ref\": \"$2\", \"environment\": \"$3\"}" 2>/dev/null
 }
 
 set_status() {
-  curl -u "$AUTH" -XPOST "$GITHUB_URL/repos/$1/deployments/$2/statuses" --data "{\"state\": \"$3\", \"target_url\": \"http://example.com\"}" 2>/dev/null
+  curl -u "$AUTH" -XPOST "$GITHUB_URL/repos/$1/deployments/$2/statuses" \
+       -d "{\"state\": \"$3\", \"target_url\": \"$4\"}" >/dev/null 2>&1
 }
 
 case "$1" in
   'pending')
-    if [ "$#" -ne 4 ]; then
-      echo "pending: REPO REF ENVIRONMENT required"
+    if [ "$#" -ne 5 ]; then
+      echo "pending: REPO REF URL ENVIRONMENT required"
       exit 1
     fi
     
     REPO="$2"
     REF="$3"
-    ENVIRONMENT="$4"
+    URL="$4"
+    ENVIRONMENT="$5"
     
     ID=`create_deployment "$REPO" "$REF" "$ENVIRONMENT"`
-    set_status "$REPO" "$ID" 'pending'
+    set_status "$REPO" "$ID" 'pending' "$URL"
     ;;
   'success')
-    if [ "$#" -ne 3 ]; then
-      echo "success: REPO REF required"
+    if [ "$#" -ne 5 ]; then
+      echo "success: REPO REF URL ENVIRONMENT required"
       exit 1
     fi
     
     REPO="$2"
     REF="$3"
+    URL="$4"
+    ENVIRONMENT="$5"
     
-    ID=`get_id "$REPO" "$REF"`
-    set_status "$REPO" "$ID" 'success'
+    ID=`get_id "$REPO" "$REF" "$ENVIRONMENT"`
+    set_status "$REPO" "$ID" 'success' "$URL"
     ;;
   'failure')
-    if [ "$#" -ne 3 ]; then
-      echo "failure: REPO REF required"
+    if [ "$#" -ne 5 ]; then
+      echo "failure: REPO REF URL ENVIRONMENT required"
       exit 1
     fi
     
     REPO="$2"
     REF="$3"
+    URL="$4"
+    ENVIRONMENT="$5"
     
-    ID=`get_id "$REPO" "$REF"`
-    set_status "$REPO" "$ID" 'failure'
+    ID=`get_id "$REPO" "$REF" "$ENVIRONMENT"`
+    set_status "$REPO" "$ID" 'failure' "$URL"
     ;;
   *) 
-    echo "Usage: $0 \
+    echo "Usage: $0 COMMAND 
+  
+  gh-deployments creates and updates deployments on GitHub
       
-      pending REPO REF ENVIRONMENT URL
-      success REPO REF
-      failure REPO REF
+COMMANDS
+  pending REPO REF URL ENVIRONMENT
+  success REPO REF URL ENVIRONMENT
+  failure REPO REF URL ENVIRONMENT
     " 
     ;;
 esac
